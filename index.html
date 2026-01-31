@@ -128,11 +128,11 @@ function spawnBee() {
   else if (edge < 0.75) { x = Math.random() * (canvas.width - 2*margin) + margin; y = canvas.height - margin; }
   else { x = margin; y = Math.random() * (canvas.height - 2*margin) + margin; }
 
-  incomingBees.push({ x, y, timer: 2 }); // white-dot warning for new bees
+  incomingBees.push({ x, y, timer: 2 }); // white-dot warning
 }
 
 function activateBee(bee) {
-  const minSpeed = 1; // ensures bees move fast enough
+  const minSpeed = 1;
   bees.push({
     x: bee.x,
     y: bee.y,
@@ -203,6 +203,7 @@ function drawBees() { ctx.fillStyle="yellow"; bees.forEach(b=>{ctx.beginPath(); 
 function drawIncomingBees() { ctx.fillStyle="white"; incomingBees.forEach(b=>{ctx.beginPath(); ctx.arc(b.x,b.y,10,0,Math.PI*2); ctx.fill();}); }
 function drawSlowOrb() { if(!slowOrb) return; ctx.fillStyle="cyan"; ctx.beginPath(); ctx.arc(slowOrb.x,slowOrb.y,slowOrb.radius,0,Math.PI*2); ctx.fill(); }
 function drawUI() { if(slowActive){ctx.fillStyle="cyan";ctx.font="18px Arial";ctx.fillText(`Slow: ${slowTimer}s`,canvas.width-140,50);} }
+function drawGameOver() { ctx.fillStyle="red"; ctx.font="bold 60px Arial"; ctx.textAlign="center"; ctx.fillText("GAME OVER", canvas.width/2, canvas.height/2); }
 
 /* ================= UPDATE ================= */
 function moveSnake() {
@@ -241,12 +242,19 @@ function endGame(){
   gameOver=true; playTone(90,0.4,"sawtooth",0.3); playAgainButton.style.display="block";
 }
 
+/* ================= LOOP ================= */
 function gameLoop(){
   requestAnimationFrame(gameLoop);
-  if(paused||gameOver) return;
+  if(paused) return;
+
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  moveSnake(); moveBees(); checkCollisions();
-  drawSnake(); drawBees(); drawIncomingBees(); drawSlowOrb(); drawUI();
+
+  if(!gameOver){
+    moveSnake(); moveBees(); checkCollisions();
+    drawSnake(); drawBees(); drawIncomingBees(); drawSlowOrb(); drawUI();
+  } else {
+    drawGameOver();
+  }
 }
 gameLoop();
 </script>
