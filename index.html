@@ -114,45 +114,46 @@ let score = 0;
 let bees = [];
 let incomingBees = []; // white dot warnings
 let beeCount = 8;
+const beeRadius = 25;
 
 // Speed scaling
-let beeSpeedMultiplier = 0.5;
+let beeSpeedMultiplier = 1; // start faster
 let elapsedSeconds = 0;
 
 // Slow orb
 let slowOrb = null;
-let slowOrbTimer = 0;
-let slowActive = false;
 let slowTimer = 0;
+let slowActive = false;
 
 /* ================= BEE HELPERS ================= */
 function spawnBee() {
+  const margin = beeRadius + 5;
   let x, y;
   const edge = Math.random();
-  if (edge < 0.25) { x = Math.random() * canvas.width; y = 20; }
-  else if (edge < 0.5) { x = canvas.width - 20; y = Math.random() * canvas.height; }
-  else if (edge < 0.75) { x = Math.random() * canvas.width; y = canvas.height - 20; }
-  else { x = 20; y = Math.random() * canvas.height; }
+  if (edge < 0.25) { x = Math.random() * (canvas.width - 2*margin) + margin; y = margin; }
+  else if (edge < 0.5) { x = canvas.width - margin; y = Math.random() * (canvas.height - 2*margin) + margin; }
+  else if (edge < 0.75) { x = Math.random() * (canvas.width - 2*margin) + margin; y = canvas.height - margin; }
+  else { x = margin; y = Math.random() * (canvas.height - 2*margin) + margin; }
 
-  // Add a warning dot first
-  incomingBees.push({ x, y, timer: 2 }); // 2 seconds
+  incomingBees.push({ x, y, timer: 2 }); // white dot for 2 seconds
 }
 
 function activateBee(bee) {
   bees.push({
     x: bee.x,
     y: bee.y,
-    radius: 25,
-    dx: (Math.random() * 0.8 + 0.3) * (Math.random() < 0.5 ? 1 : -1),
-    dy: (Math.random() * 0.8 + 0.3) * (Math.random() < 0.5 ? 1 : -1)
+    radius: beeRadius,
+    dx: (Math.random() * 1.5 + 0.5) * (Math.random() < 0.5 ? 1 : -1),
+    dy: (Math.random() * 1.5 + 0.5) * (Math.random() < 0.5 ? 1 : -1)
   });
 }
 
-function createBees() {
+function createInitialBees() {
   bees = [];
+  incomingBees = [];
   for (let i = 0; i < beeCount; i++) spawnBee();
 }
-createBees();
+createInitialBees();
 
 /* ================= INPUT ================= */
 canvas.addEventListener("mousemove", e => {
@@ -173,18 +174,16 @@ setInterval(() => {
   elapsedSeconds++;
   scoreDisplay.textContent = "Score: " + score;
 
-  // Speed increase
+  // Increase speed every 30s
   if (elapsedSeconds % 30 === 0) {
     beeSpeedMultiplier += 0.1;
-
-    // Add new bee every 30s
-    spawnBee();
+    spawnBee(); // add new bee every 30s
   }
 }, 1000);
 
 // Slow orb spawn
 function scheduleSlowOrb() {
-  const delay = Math.random() * 90000 + 30000;
+  const delay = Math.random() * 90000 + 30000; // 30s-2min
   setTimeout(() => {
     if (!gameOver && !slowOrb) {
       slowOrb = {
@@ -192,34 +191,18 @@ function scheduleSlowOrb() {
         y: Math.random() * canvas.height,
         radius: 12
       };
-      slowOrbTimer = 10;
+      slowTimer = 5;
     }
     scheduleSlowOrb();
   }, delay);
 }
 scheduleSlowOrb();
 
-// Orb expiration
-setInterval(() => {
-  if (slowOrb) {
-    slowOrbTimer--;
-    if (slowOrbTimer <= 0) slowOrb = null;
-  }
-}, 1000);
-
-// Slow effect timer
-setInterval(() => {
-  if (slowActive) {
-    slowTimer--;
-    if (slowTimer <= 0) slowActive = false;
-  }
-}, 1000);
-
 /* ================= DRAW ================= */
 function drawSnake() {
   ctx.fillStyle = "lime";
   ctx.beginPath();
-  ctx.arc(snake.x, snake.y, snake.radius, 0, Math.PI * 2);
+  ctx.arc(snake.x, snake.y, snake.radius, 0, Math.PI*2);
   ctx.fill();
 }
 
@@ -227,7 +210,7 @@ function drawBees() {
   ctx.fillStyle = "yellow";
   bees.forEach(b => {
     ctx.beginPath();
-    ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+    ctx.arc(b.x, b.y, b.radius, 0, Math.PI*2);
     ctx.fill();
   });
 }
@@ -236,7 +219,7 @@ function drawIncomingBees() {
   ctx.fillStyle = "white";
   incomingBees.forEach(b => {
     ctx.beginPath();
-    ctx.arc(b.x, b.y, 10, 0, Math.PI * 2); // small white dot
+    ctx.arc(b.x, b.y, 10, 0, Math.PI*2);
     ctx.fill();
   });
 }
@@ -245,7 +228,7 @@ function drawSlowOrb() {
   if (!slowOrb) return;
   ctx.fillStyle = "cyan";
   ctx.beginPath();
-  ctx.arc(slowOrb.x, slowOrb.y, slowOrb.radius, 0, Math.PI * 2);
+  ctx.arc(slowOrb.x, slowOrb.y, slowOrb.radius, 0, Math.PI*2);
   ctx.fill();
 }
 
@@ -278,9 +261,9 @@ function moveBees() {
     if (b.y < b.radius || b.y > canvas.height - b.radius) b.dy *= -1;
   });
 
-  // Handle incoming bees countdown
+  // Activate incoming bees
   for (let i = incomingBees.length - 1; i >= 0; i--) {
-    incomingBees[i].timer -= 1/60; // approximate frame timing
+    incomingBees[i].timer -= 1/60;
     if (incomingBees[i].timer <= 0) {
       activateBee(incomingBees[i]);
       incomingBees.splice(i, 1);
@@ -300,7 +283,6 @@ function checkCollisions() {
     const d = Math.hypot(snake.x - slowOrb.x, snake.y - slowOrb.y);
     if (d < snake.radius + slowOrb.radius) {
       slowOrb = null;
-      slowOrbTimer = 0;
       slowActive = true;
       slowTimer = 5;
       playTone(400, 0.2);
@@ -331,7 +313,6 @@ function gameLoop() {
   drawSlowOrb();
   drawUI();
 }
-
 gameLoop();
 </script>
 
