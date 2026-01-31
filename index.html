@@ -113,11 +113,6 @@ const beeRadius = 25;
 // Speed scaling
 let beeSpeedMultiplier = 1;
 
-// Slow orb
-let slowOrb = null;
-let slowTimer = 0;
-let slowActive = false;
-
 /* ================= BEE HELPERS ================= */
 function spawnBee() {
   const margin = beeRadius + 5;
@@ -236,11 +231,6 @@ function checkCollisions() {
   for(let b of bees){
     if(Math.hypot(snake.x-b.x,snake.y-b.y)<snake.radius+b.radius){ endGame(); return; }
   }
-  if(slowOrb){
-    const d = Math.hypot(snake.x-slowOrb.x,snake.y-slowOrb.y);
-    if(d<snake.radius+slowOrb.radius){ slowOrb=null; slowActive=true; slowTimer=5; playTone(400,0.2); }
-  }
-}
 
 function endGame(){
   gameOver=true; playTone(90,0.4,"sawtooth",0.3); playAgainButton.style.display="block";
@@ -267,9 +257,7 @@ function startGame() {
   beeSpeedMultiplier = 1;
   createInitialBees();
 
-  slowOrb = null;
   slowActive = false;
-  slowTimer = 0;
 
   playAgainButton.style.display = "none";
 }
