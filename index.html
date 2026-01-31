@@ -184,7 +184,6 @@ setInterval(() => {
 function drawSnake() { ctx.fillStyle="lime"; ctx.beginPath(); ctx.arc(snake.x,snake.y,snake.radius,0,Math.PI*2); ctx.fill(); }
 function drawBees() { ctx.fillStyle="yellow"; bees.forEach(b=>{ctx.beginPath(); ctx.arc(b.x,b.y,b.radius,0,Math.PI*2); ctx.fill();}); }
 function drawIncomingBees() { ctx.fillStyle="white"; incomingBees.forEach(b=>{ctx.beginPath(); ctx.arc(b.x,b.y,10,0,Math.PI*2); ctx.fill();}); }
-function drawUI() {}
 function drawGameOver() { ctx.fillStyle="red"; ctx.font="bold 60px Arial"; ctx.textAlign="center"; ctx.fillText("GAME OVER", canvas.width/2, canvas.height/2); }
 
 /* ================= UPDATE ================= */
@@ -192,12 +191,12 @@ function moveSnake() {
   const dx = target.x - snake.x;
   const dy = target.y - snake.y;
   const dist = Math.hypot(dx, dy);
-  if(dist>1){
-    const fraction = 0.25; // move 25% of distance per frame
-    snake.x += dx * fraction;
-    snake.y += dy * fraction;
+  if(dist>0){
+    const fraction = 0.35; // snappier
+    snake.x += dx*fraction;
+    snake.y += dy*fraction;
 
-    // Beep every move
+    // Play beep on every movement
     if(audioCtx) playTone(400 + Math.random()*100, 0.05, "square", 0.1);
   }
 }
@@ -220,12 +219,6 @@ function checkCollisions() {
   for(let b of bees){
     if(Math.hypot(snake.x-b.x,snake.y-b.y)<snake.radius+b.radius){ endGame(); return; }
   }
-}
-
-function endGame(){
-  gameOver=true;
-  playTone(90,0.4,"sawtooth",0.3);
-  playAgainButton.style.display="block";
 }
 
 /* ================= START / RESTART ================= */
@@ -260,7 +253,7 @@ function gameLoop(){
 
   if(!gameOver){
     moveSnake(); moveBees(); checkCollisions();
-    drawSnake(); drawBees(); drawIncomingBees(); drawUI();
+    drawSnake(); drawBees(); drawIncomingBees();
   } else {
     drawGameOver();
   }
