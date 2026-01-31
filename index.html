@@ -180,24 +180,11 @@ setInterval(() => {
   }
 }, 1000);
 
-function scheduleSlowOrb() {
-  const delay = Math.random()*90000 + 30000;
-  setTimeout(() => {
-    if (!gameOver && !slowOrb) {
-      slowOrb = { x: Math.random()*canvas.width, y: Math.random()*canvas.height, radius: 12 };
-      slowTimer = 5;
-    }
-    scheduleSlowOrb();
-  }, delay);
-}
-scheduleSlowOrb();
-
 /* ================= DRAW ================= */
 function drawSnake() { ctx.fillStyle="lime"; ctx.beginPath(); ctx.arc(snake.x,snake.y,snake.radius,0,Math.PI*2); ctx.fill(); }
 function drawBees() { ctx.fillStyle="yellow"; bees.forEach(b=>{ctx.beginPath(); ctx.arc(b.x,b.y,b.radius,0,Math.PI*2); ctx.fill();}); }
 function drawIncomingBees() { ctx.fillStyle="white"; incomingBees.forEach(b=>{ctx.beginPath(); ctx.arc(b.x,b.y,10,0,Math.PI*2); ctx.fill();}); }
-function drawSlowOrb() { if(!slowOrb) return; ctx.fillStyle="cyan"; ctx.beginPath(); ctx.arc(slowOrb.x,slowOrb.y,slowOrb.radius,0,Math.PI*2); ctx.fill(); }
-function drawUI() { if(slowActive){ctx.fillStyle="cyan";ctx.font="18px Arial";ctx.fillText(`Slow: ${slowTimer}s`,canvas.width-140,50);} }
+function drawUI() {}
 function drawGameOver() { ctx.fillStyle="red"; ctx.font="bold 60px Arial"; ctx.textAlign="center"; ctx.fillText("GAME OVER", canvas.width/2, canvas.height/2); }
 
 /* ================= UPDATE ================= */
@@ -206,17 +193,16 @@ function moveSnake() {
   const dy = target.y - snake.y;
   const dist = Math.hypot(dx,dy);
   if(dist>1){
-    const fraction = 0.25; // move 25% of distance per frame for faster response
+    const fraction = 0.25; // move 25% of distance per frame
     snake.x += dx * fraction;
     snake.y += dy * fraction;
   }
 }
 
 function moveBees() {
-  const slowFactor = slowActive ? 0.5 : 1;
   bees.forEach(b => {
-    b.x += b.dx * beeSpeedMultiplier * slowFactor;
-    b.y += b.dy * beeSpeedMultiplier * slowFactor;
+    b.x += b.dx * beeSpeedMultiplier;
+    b.y += b.dy * beeSpeedMultiplier;
     if (b.x < b.radius || b.x > canvas.width-b.radius) b.dx*=-1;
     if (b.y < b.radius || b.y > canvas.height-b.radius) b.dy*=-1;
   });
@@ -231,9 +217,12 @@ function checkCollisions() {
   for(let b of bees){
     if(Math.hypot(snake.x-b.x,snake.y-b.y)<snake.radius+b.radius){ endGame(); return; }
   }
+}
 
 function endGame(){
-  gameOver=true; playTone(90,0.4,"sawtooth",0.3); playAgainButton.style.display="block";
+  gameOver=true;
+  playTone(90,0.4,"sawtooth",0.3);
+  playAgainButton.style.display="block";
 }
 
 /* ================= START / RESTART ================= */
@@ -242,22 +231,17 @@ function startGame() {
   paused = false;
   pauseBtn.textContent = "Pause";
 
-  // Reset player
   snake.x = canvas.width/2;
   snake.y = canvas.height/2;
   target.x = snake.x;
   target.y = snake.y;
 
-  // Reset score
   score = 0;
   elapsedSeconds = 0;
   scoreDisplay.textContent = "Score: 0";
 
-  // Reset bees
   beeSpeedMultiplier = 1;
   createInitialBees();
-
-  slowActive = false;
 
   playAgainButton.style.display = "none";
 }
@@ -273,7 +257,7 @@ function gameLoop(){
 
   if(!gameOver){
     moveSnake(); moveBees(); checkCollisions();
-    drawSnake(); drawBees(); drawIncomingBees(); drawSlowOrb(); drawUI();
+    drawSnake(); drawBees(); drawIncomingBees(); drawUI();
   } else {
     drawGameOver();
   }
