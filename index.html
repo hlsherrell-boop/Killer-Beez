@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+
+<title>Snake vs Bees</title>
+
+<style>
+
+  body {
+
+    margin: 0;
+
+    background: black;
+
+    overflow: hidden;
+
+    font-family: Arial, sans-serif;
+
+  }
+
+  canvas {
+
+    display: block;
+
+    background: black;
+
+  }
+
+  #scoreDisplay {
+
+    position: absolute;
+
+    color: white;
+
+    font-size: 24px;
+
+    top: 10px;
+
+    left: 10px;
+
+  }
+
+  #playAgain {
+
+    position: absolute;
+
+    display: none;
+
+    padding: 10px 22px;
+
+    font-size: 22px;
+
+    cursor: pointer;
+
+    background: green;
+
+    color: white;
+
+    border: none;
+
+    border-radius: 8px;
+
+    top: 50%;
+
+    left: 50%;
+
+    transform: translate(-50%, 50px);
+
+  }
+
+</style>
+
+</head>
+
+<body>
+
+<canvas id="gameCanvas"></canvas>
+
+<div id="scoreDisplay">Score: 0</div>
+
+<button id="playAgain">Play Again</button>
+
+<script>
+
+/* ================= AUDIO (Web Audio API) ================= */
+
+let audioCtx = null;
+
+function initAudio() {
+
+  if (!audioCtx) {
+
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+  }
+
+}
+
+function playTone(freq, duration = 0.1, type = "square", volume = 0.15) {
+
+  if (!audioCtx) return;
+
+  const osc = audioCtx.createOscillator();
+
+  const gain = audioCtx.createGain();
+
+  osc.type = type;
+
+  osc.frequency.value = freq;
+
+  gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+
+  gain.gain.exponentialRampToValueAtTime(
+
+    0.001,
+
+    audioCtx.currentTime + duration
+
+  );
+
+  osc.connect(gain);
+
+  gain.connect(audioCtx.destination);
+
+  osc.start();
+
+  osc.stop(audioCtx.currentTime + duration);
+
+}
+
+/* ================= GAME SETUP ================= */
+
+const canvas = document.getElementById("gameCanvas");
+
+const ctx = canvas.getContext("2d");
+
+canvas.width = window.innerWidth;
+
+canvas.height = window.innerHeight;
+
+const scoreDisplay = document.getElementById("scoreDisplay");
+
+const playAgainButton = document.getElementById("playAgain");
+
+// Snake
+
+let snake = {
+
+  x: canvas.width / 2,
+
+  y: canvas.height / 2,
+
+  radius: 15,
+
+  speed: 5
+
+};
+
+let target = { x: snake.x, y: snake.y };
+
+// Game state
+
+let gameOver = false;
+
+let score = 0;
+
+let scoreInterval;
+
+// Bees
+
+let bees = [];
+
+const beeCount = 8;
+
+function createBees() {
+
+  bees = [];
+
+  for (let i = 0; i < beeCount; i++) {
+
+    const edge = Math.random();
+
+    let x, y;
+
+    if (edge < 0.25) { x = Math.random() * canvas.width; y = 20; }
+
+    else if (edge < 0.5) { x = canvas.width - 20; y = Math.random() * canvas.height; }
+
+    else if (edge < 0.75) { x = Math.random() * canvas.width; y = canvas.height - 20; }
+
+    else { x = 20; y = Math.random() * canvas.height; }
+
+    bees.push({
+
+      x, y,
+
+      radius: 10,
+
+      dx: (Math.random() * 1 + 0.5) * (Math.random() < 0.5 ? 1 : -1),
+
+      dy: (Math.random() * 1 + 0.5) * (Math.random() < 0.5 ? 1 : -1)
+
+    });
+
+  }
+
+}
+
+createBees();
+
+/* ================= INPUT ================= */
+
+function unlockAudio() {
+
+  initAudio();
+
+}
+
+canvas.addEventListener("mousedown", e => {
+
+  unlockAudio();
+
+  if (!gameOver) {
+
+    target.x = e.clientX;
+
+    target.y = e.clientY;
+
+  }
+
+});
+
+canvas.addEventListener("touchstart", e => {
+
+  unlockAudio();
+
+  if (!gameOver) {
+
+    target.x = e.touches[0].clientX;
+
+    target.y = e.touches[0].clientY;
+
+  }
+
+}, { passive: true });
+
+canvas.addEventListener("mousemove", e => {
+
+  if (!gameOver) {
+
+    target.x = e.clientX;
+
+    target.y = e.clientY;
+
+  }
+
+});
+
+canvas.addEventListener("touchmove", e => {
+
+  if (!gameOver) {
+
+    e.preventDefault();
+
+    target.x = e.touches[0].clientX;
+
+    target.y = e.touches[0].clientY;
+
+  }
+
+}, { passive: false });
+
+/* ================= DRAW ================= */
+
+function drawSnake() {
+
+  ctx.fillStyle = "lime";
+
+  ctx.beginPath();
+
+  ctx.arc(snake.x, snake.y, snake.radius, 0, Math.PI * 2);
+
+  ctx.fill();
+
+}
+
+function drawBees() {
+
+  ctx.fillStyle = "yellow";
+
+  bees.forEach(b => {
+
+    ctx.beginPath();
+
+    ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+
+    ctx.fill();
+
+  });
+
+}
+
+function drawGameOver() {
+
+  ctx.fillStyle = "red";
+
+  ctx.font = "bold 50px Arial";
+
+  ctx.textAlign = "center";
+
+  ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2);
+
+}
+
+/* ================= UPDATE ================= */
+
+function moveSnake() {
+
+  const dx = target.x - snake.x;
+
+  const dy = target.y - snake.y;
+
+  const dist = Math.hypot(dx, dy);
+
+  if (dist > 1) {
+
+    snake.x += (dx / dist) * snake.speed;
+
+    snake.y += (dy / dist) * snake.speed;
+
+    if (Math.random() < 0.04) {
+
+      playTone(250 + Math.random() * 300, 0.05);
+
+    }
+
+  }
+
+}
+
+function moveBees() {
+
+  bees.forEach(b => {
+
+    b.x += b.dx;
+
+    b.y += b.dy;
+
+    if (b.x < b.radius || b.x > canvas.width - b.radius) b.dx *= -1;
+
+    if (b.y < b.radius || b.y > canvas.height - b.radius) b.dy *= -1;
+
+  });
+
+}
+
+function checkCollisions() {
+
+  for (let b of bees) {
+
+    if (Math.hypot(snake.x - b.x, snake.y - b.y) < snake.radius + b.radius) {
+
+      endGame();
+
+      break;
+
+    }
+
+  }
+
+}
+
+function endGame() {
+
+  gameOver = true;
+
+  clearInterval(scoreInterval);
+
+  playTone(90, 0.4, "sawtooth", 0.3);
+
+  playAgainButton.style.display = "block";
+
+}
+
+/* ================= LOOP ================= */
+
+function update() {
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  if (!gameOver) {
+
+    moveSnake();
+
+    moveBees();
+
+    checkCollisions();
+
+    drawBees();
+
+    drawSnake();
+
+  } else {
+
+    drawGameOver();
+
+  }
+
+  requestAnimationFrame(update);
+
+}
+
+/* ================= SCORE ================= */
+
+function startScore() {
+
+  score = 0;
+
+  scoreDisplay.textContent = "Score: 0";
+
+  scoreInterval = setInterval(() => {
+
+    if (!gameOver) {
+
+      score++;
+
+      scoreDisplay.textContent = "Score: " + score;
+
+      playTone(600 + score * 2, 0.07, "square", 0.1);
+
+    }
+
+  }, 500);
+
+}
+
+/* ================= RESTART ================= */
+
+playAgainButton.onclick = () => {
+
+  unlockAudio();
+
+  gameOver = false;
+
+  snake.x = canvas.width / 2;
+
+  snake.y = canvas.height / 2;
+
+  target.x = snake.x;
+
+  target.y = snake.y;
+
+  createBees();
+
+  playAgainButton.style.display = "none";
+
+  startScore();
+
+};
+
+/* ================= START ================= */
+
+startScore();
+
+update();
+
+window.addEventListener("resize", () => {
+
+  canvas.width = window.innerWidth;
+
+  canvas.height = window.innerHeight;
+
+});
+
+</script>
+
+</body>
+
+</html>
