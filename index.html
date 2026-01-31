@@ -112,12 +112,12 @@ let score = 0;
 
 // Bees
 let bees = [];
-let incomingBees = []; // white dot warnings
+let incomingBees = []; // white dot warnings for new bees
 let beeCount = 8;
 const beeRadius = 25;
 
 // Speed scaling
-let beeSpeedMultiplier = 1; // start faster
+let beeSpeedMultiplier = 1; // start at good speed
 let elapsedSeconds = 0;
 
 // Slow orb
@@ -139,19 +139,31 @@ function spawnBee() {
 }
 
 function activateBee(bee) {
+  const minSpeed = 1; // ensures it never gets stuck
   bees.push({
     x: bee.x,
     y: bee.y,
     radius: beeRadius,
-    dx: (Math.random() * 1.5 + 0.5) * (Math.random() < 0.5 ? 1 : -1),
-    dy: (Math.random() * 1.5 + 0.5) * (Math.random() < 0.5 ? 1 : -1)
+    dx: (Math.random() * 1.5 + minSpeed) * (Math.random() < 0.5 ? 1 : -1),
+    dy: (Math.random() * 1.5 + minSpeed) * (Math.random() < 0.5 ? 1 : -1)
   });
 }
 
 function createInitialBees() {
   bees = [];
   incomingBees = [];
-  for (let i = 0; i < beeCount; i++) spawnBee();
+  const margin = beeRadius + 5;
+  for (let i = 0; i < beeCount; i++) {
+    // initial bees spawn yellow directly
+    let x = Math.random() * (canvas.width - 2*margin) + margin;
+    let y = Math.random() * (canvas.height - 2*margin) + margin;
+    const minSpeed = 1;
+    bees.push({
+      x, y, radius: beeRadius,
+      dx: (Math.random() * 1.5 + minSpeed) * (Math.random() < 0.5 ? 1 : -1),
+      dy: (Math.random() * 1.5 + minSpeed) * (Math.random() < 0.5 ? 1 : -1)
+    });
+  }
 }
 createInitialBees();
 
@@ -174,10 +186,10 @@ setInterval(() => {
   elapsedSeconds++;
   scoreDisplay.textContent = "Score: " + score;
 
-  // Increase speed every 30s
+  // Increase speed and add new bee every 30s
   if (elapsedSeconds % 30 === 0) {
     beeSpeedMultiplier += 0.1;
-    spawnBee(); // add new bee every 30s
+    spawnBee(); // new bee with white-dot warning
   }
 }, 1000);
 
