@@ -191,11 +191,14 @@ function drawGameOver() { ctx.fillStyle="red"; ctx.font="bold 60px Arial"; ctx.t
 function moveSnake() {
   const dx = target.x - snake.x;
   const dy = target.y - snake.y;
-  const dist = Math.hypot(dx,dy);
+  const dist = Math.hypot(dx, dy);
   if(dist>1){
     const fraction = 0.25; // move 25% of distance per frame
     snake.x += dx * fraction;
     snake.y += dy * fraction;
+
+    // Beep every move
+    if(audioCtx) playTone(400 + Math.random()*100, 0.05, "square", 0.1);
   }
 }
 
