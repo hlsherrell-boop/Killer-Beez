@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>Killer Beez</title>
+
 <style>
   body {
     margin: 0;
@@ -24,6 +25,15 @@
     left: 10px;
   }
 
+  #pauseBtn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 18px;
+    padding: 6px 14px;
+    cursor: pointer;
+  }
+
   #playAgain {
     position: absolute;
     display: none;
@@ -40,21 +50,23 @@
   }
 </style>
 </head>
+
 <body>
 
 <canvas id="gameCanvas"></canvas>
 <div id="scoreDisplay">Score: 0</div>
+<button id="pauseBtn">Pause</button>
 <button id="playAgain">Play Again</button>
 
 <script>
 /* ================= AUDIO ================= */
-
 let audioCtx = null;
 function initAudio() {
   if (!audioCtx) {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   }
 }
+
 function playTone(freq, duration = 0.1, type = "square", volume = 0.15) {
   if (!audioCtx) return;
   const osc = audioCtx.createOscillator();
@@ -69,8 +81,7 @@ function playTone(freq, duration = 0.1, type = "square", volume = 0.15) {
   osc.stop(audioCtx.currentTime + duration);
 }
 
-/* ================= GAME SETUP ================= */
-
+/* ================= SETUP ================= */
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
@@ -78,12 +89,19 @@ canvas.height = window.innerHeight;
 
 const scoreDisplay = document.getElementById("scoreDisplay");
 const playAgainButton = document.getElementById("playAgain");
+const pauseBtn = document.getElementById("pauseBtn");
 
-// Snake
+let paused = false;
+pauseBtn.onclick = () => {
+  paused = !paused;
+  pauseBtn.textContent = paused ? "Resume" : "Pause";
+};
+
+// Player
 let snake = {
   x: canvas.width / 2,
   y: canvas.height / 2,
-  radius: 30, // bigger player
+  radius: 30,
   speed: 5
 };
 let target = { x: snake.x, y: snake.y };
@@ -91,65 +109,113 @@ let target = { x: snake.x, y: snake.y };
 // Game state
 let gameOver = false;
 let score = 0;
-let scoreInterval;
 
 // Bees
 let bees = [];
-const beeCount = 10; // more bees
-const beeRadius = 25; // bigger bees
-let beeSpeedMultiplier = 1;
-const beeSpeedIncrease = 0.005; // gradual speed increase
+let incomingBees = []; // white dot warnings
+let beeCount = 8;
+
+// Speed scaling
+let beeSpeedMultiplier = 0.5;
+let elapsedSeconds = 0;
+
+// Slow orb
+let slowOrb = null;
+let slowOrbTimer = 0;
+let slowActive = false;
+let slowTimer = 0;
+
+/* ================= BEE HELPERS ================= */
+function spawnBee() {
+  let x, y;
+  const edge = Math.random();
+  if (edge < 0.25) { x = Math.random() * canvas.width; y = 20; }
+  else if (edge < 0.5) { x = canvas.width - 20; y = Math.random() * canvas.height; }
+  else if (edge < 0.75) { x = Math.random() * canvas.width; y = canvas.height - 20; }
+  else { x = 20; y = Math.random() * canvas.height; }
+
+  // Add a warning dot first
+  incomingBees.push({ x, y, timer: 2 }); // 2 seconds
+}
+
+function activateBee(bee) {
+  bees.push({
+    x: bee.x,
+    y: bee.y,
+    radius: 25,
+    dx: (Math.random() * 0.8 + 0.3) * (Math.random() < 0.5 ? 1 : -1),
+    dy: (Math.random() * 0.8 + 0.3) * (Math.random() < 0.5 ? 1 : -1)
+  });
+}
 
 function createBees() {
   bees = [];
-  for (let i = 0; i < beeCount; i++) {
-    const edge = Math.random();
-    let x, y;
-    const r = beeRadius;
-
-    if (edge < 0.25) { x = Math.random() * (canvas.width - 2*r) + r; y = r; }
-    else if (edge < 0.5) { x = canvas.width - r; y = Math.random() * (canvas.height - 2*r) + r; }
-    else if (edge < 0.75) { x = Math.random() * (canvas.width - 2*r) + r; y = canvas.height - r; }
-    else { x = r; y = Math.random() * (canvas.height - 2*r) + r; }
-
-    bees.push({
-      x, y,
-      radius: r,
-      dx: (Math.random() * 2 + 1) * (Math.random() < 0.5 ? 1 : -1),
-      dy: (Math.random() * 2 + 1) * (Math.random() < 0.5 ? 1 : -1)
-    });
-  }
+  for (let i = 0; i < beeCount; i++) spawnBee();
 }
 createBees();
 
 /* ================= INPUT ================= */
-
-function unlockAudio() { initAudio(); }
-
-canvas.addEventListener("mousedown", e => {
-  unlockAudio();
-  if (!gameOver) { target.x = e.clientX; target.y = e.clientY; }
-});
-
-canvas.addEventListener("touchstart", e => {
-  unlockAudio();
-  if (!gameOver) { target.x = e.touches[0].clientX; target.y = e.touches[0].clientY; }
-}, { passive: true });
-
 canvas.addEventListener("mousemove", e => {
-  if (!gameOver) { target.x = e.clientX; target.y = e.clientY; }
-});
-
-canvas.addEventListener("touchmove", e => {
-  if (!gameOver) {
-    e.preventDefault();
-    target.x = e.touches[0].clientX;
-    target.y = e.touches[0].clientY;
+  if (!gameOver && !paused) {
+    target.x = e.clientX;
+    target.y = e.clientY;
   }
-}, { passive: false });
+});
+canvas.addEventListener("mousedown", initAudio);
+canvas.addEventListener("touchstart", initAudio, { passive: true });
+
+/* ================= TIMERS ================= */
+// Score + difficulty + new bees
+setInterval(() => {
+  if (gameOver || paused) return;
+
+  score++;
+  elapsedSeconds++;
+  scoreDisplay.textContent = "Score: " + score;
+
+  // Speed increase
+  if (elapsedSeconds % 30 === 0) {
+    beeSpeedMultiplier += 0.1;
+
+    // Add new bee every 30s
+    spawnBee();
+  }
+}, 1000);
+
+// Slow orb spawn
+function scheduleSlowOrb() {
+  const delay = Math.random() * 90000 + 30000;
+  setTimeout(() => {
+    if (!gameOver && !slowOrb) {
+      slowOrb = {
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        radius: 12
+      };
+      slowOrbTimer = 10;
+    }
+    scheduleSlowOrb();
+  }, delay);
+}
+scheduleSlowOrb();
+
+// Orb expiration
+setInterval(() => {
+  if (slowOrb) {
+    slowOrbTimer--;
+    if (slowOrbTimer <= 0) slowOrb = null;
+  }
+}, 1000);
+
+// Slow effect timer
+setInterval(() => {
+  if (slowActive) {
+    slowTimer--;
+    if (slowTimer <= 0) slowActive = false;
+  }
+}, 1000);
 
 /* ================= DRAW ================= */
-
 function drawSnake() {
   ctx.fillStyle = "lime";
   ctx.beginPath();
@@ -166,97 +232,108 @@ function drawBees() {
   });
 }
 
-function drawGameOver() {
-  ctx.fillStyle = "red";
-  ctx.font = "bold 50px Arial";
-  ctx.textAlign = "center";
-  ctx.fillText("GAME OVER", canvas.width / 2, canvas.height / 2);
+function drawIncomingBees() {
+  ctx.fillStyle = "white";
+  incomingBees.forEach(b => {
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, 10, 0, Math.PI * 2); // small white dot
+    ctx.fill();
+  });
+}
+
+function drawSlowOrb() {
+  if (!slowOrb) return;
+  ctx.fillStyle = "cyan";
+  ctx.beginPath();
+  ctx.arc(slowOrb.x, slowOrb.y, slowOrb.radius, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawUI() {
+  if (slowActive) {
+    ctx.fillStyle = "cyan";
+    ctx.font = "18px Arial";
+    ctx.fillText(`Slow: ${slowTimer}s`, canvas.width - 140, 50);
+  }
 }
 
 /* ================= UPDATE ================= */
-
 function moveSnake() {
   const dx = target.x - snake.x;
   const dy = target.y - snake.y;
   const dist = Math.hypot(dx, dy);
-
   if (dist > 1) {
     snake.x += (dx / dist) * snake.speed;
     snake.y += (dy / dist) * snake.speed;
-
-    if (Math.random() < 0.04) { playTone(250 + Math.random() * 300, 0.05); }
   }
 }
 
 function moveBees() {
+  const slowFactor = slowActive ? 0.5 : 1;
   bees.forEach(b => {
-    b.x += b.dx * beeSpeedMultiplier;
-    b.y += b.dy * beeSpeedMultiplier;
+    b.x += b.dx * beeSpeedMultiplier * slowFactor;
+    b.y += b.dy * beeSpeedMultiplier * slowFactor;
 
     if (b.x < b.radius || b.x > canvas.width - b.radius) b.dx *= -1;
     if (b.y < b.radius || b.y > canvas.height - b.radius) b.dy *= -1;
   });
 
-  // gradually increase speed
-  beeSpeedMultiplier += beeSpeedIncrease;
+  // Handle incoming bees countdown
+  for (let i = incomingBees.length - 1; i >= 0; i--) {
+    incomingBees[i].timer -= 1/60; // approximate frame timing
+    if (incomingBees[i].timer <= 0) {
+      activateBee(incomingBees[i]);
+      incomingBees.splice(i, 1);
+    }
+  }
 }
 
 function checkCollisions() {
   for (let b of bees) {
     if (Math.hypot(snake.x - b.x, snake.y - b.y) < snake.radius + b.radius) {
       endGame();
-      break;
+      return;
+    }
+  }
+
+  if (slowOrb) {
+    const d = Math.hypot(snake.x - slowOrb.x, snake.y - slowOrb.y);
+    if (d < snake.radius + slowOrb.radius) {
+      slowOrb = null;
+      slowOrbTimer = 0;
+      slowActive = true;
+      slowTimer = 5;
+      playTone(400, 0.2);
     }
   }
 }
 
 function endGame() {
   gameOver = true;
-  clearInterval(scoreInterval);
   playTone(90, 0.4, "sawtooth", 0.3);
   playAgainButton.style.display = "block";
 }
 
-/* ================= MAIN LOOP ================= */
+/* ================= LOOP ================= */
+function gameLoop() {
+  requestAnimationFrame(gameLoop);
+  if (paused || gameOver) return;
 
-function update() {
-  if (!gameOver) {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    moveSnake();
-    moveBees();
-    checkCollisions();
-    drawSnake();
-    drawBees();
-    requestAnimationFrame(update);
-  } else {
-    drawGameOver();
-  }
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  moveSnake();
+  moveBees();
+  checkCollisions();
+
+  drawSnake();
+  drawBees();
+  drawIncomingBees();
+  drawSlowOrb();
+  drawUI();
 }
 
-/* ================= START GAME ================= */
-
-function startGame() {
-  gameOver = false;
-  snake.x = canvas.width / 2;
-  snake.y = canvas.height / 2;
-  target.x = snake.x;
-  target.y = snake.y;
-  score = 0;
-  scoreDisplay.textContent = "Score: 0";
-  playAgainButton.style.display = "none";
-  createBees();
-  beeSpeedMultiplier = 1;
-  scoreInterval = setInterval(() => {
-    score++;
-    scoreDisplay.textContent = `Score: ${score}`;
-  }, 1000);
-  update();
-}
-
-playAgainButton.addEventListener("click", startGame);
-
-// Start first game
-startGame();
+gameLoop();
 </script>
+
 </body>
 </html>
