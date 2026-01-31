@@ -6,7 +6,7 @@
 
 <meta charset="UTF-8">
 
-<title>Snake vs Bees</title>
+<title> Killer Beez </title>
 
 <style>
 
@@ -154,7 +154,7 @@ let snake = {
 
   y: canvas.height / 2,
 
-  radius: 15,
+  radius: 30,
 
   speed: 5
 
@@ -174,7 +174,7 @@ let scoreInterval;
 
 let bees = [];
 
-const beeCount = 8;
+const beeCount = 10;
 
 function createBees() {
 
@@ -198,7 +198,7 @@ function createBees() {
 
       x, y,
 
-      radius: 10,
+      radius: 25,
 
       dx: (Math.random() * 1 + 0.5) * (Math.random() < 0.5 ? 1 : -1),
 
