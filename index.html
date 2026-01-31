@@ -96,22 +96,22 @@ pauseBtn.onclick = () => {
 };
 
 // Player
-let snake = { x: canvas.width/2, y: canvas.height/2, radius: 30, speed: 5 };
+let snake = { x: canvas.width/2, y: canvas.height/2, radius: 30, speed: 8 };
 let target = { x: snake.x, y: snake.y };
 
 // Game state
 let gameOver = false;
 let score = 0;
+let elapsedSeconds = 0;
 
 // Bees
 let bees = [];
-let incomingBees = []; // white-dot warnings
+let incomingBees = [];
 let beeCount = 8;
 const beeRadius = 25;
 
 // Speed scaling
 let beeSpeedMultiplier = 1;
-let elapsedSeconds = 0;
 
 // Slow orb
 let slowOrb = null;
@@ -210,7 +210,11 @@ function moveSnake() {
   const dx = target.x - snake.x;
   const dy = target.y - snake.y;
   const dist = Math.hypot(dx,dy);
-  if(dist>1){snake.x += (dx/dist)*snake.speed; snake.y += (dy/dist)*snake.speed;}
+  if(dist>1){
+    const fraction = 0.25; // move 25% of distance per frame for faster response
+    snake.x += dx * fraction;
+    snake.y += dy * fraction;
+  }
 }
 
 function moveBees() {
@@ -242,6 +246,36 @@ function endGame(){
   gameOver=true; playTone(90,0.4,"sawtooth",0.3); playAgainButton.style.display="block";
 }
 
+/* ================= START / RESTART ================= */
+function startGame() {
+  gameOver = false;
+  paused = false;
+  pauseBtn.textContent = "Pause";
+
+  // Reset player
+  snake.x = canvas.width/2;
+  snake.y = canvas.height/2;
+  target.x = snake.x;
+  target.y = snake.y;
+
+  // Reset score
+  score = 0;
+  elapsedSeconds = 0;
+  scoreDisplay.textContent = "Score: 0";
+
+  // Reset bees
+  beeSpeedMultiplier = 1;
+  createInitialBees();
+
+  slowOrb = null;
+  slowActive = false;
+  slowTimer = 0;
+
+  playAgainButton.style.display = "none";
+}
+
+playAgainButton.addEventListener("click", startGame);
+
 /* ================= LOOP ================= */
 function gameLoop(){
   requestAnimationFrame(gameLoop);
@@ -256,6 +290,7 @@ function gameLoop(){
     drawGameOver();
   }
 }
+
 gameLoop();
 </script>
 
